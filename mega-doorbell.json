@@ -1,15 +1,70 @@
 {
   "address": "modbus.lan:4196",
   "commandIntervalMillis": 200,
-  "debug": true,
   "commands": [
     [
+      {
+        "command": "on",
+        "relay": 0
+      },
+      {
+        "command": "on",
+        "relay": 1
+      },
+      {
+        "command": "on",
+        "relay": 2
+      },
+      {
+        "command": "on",
+        "relay": 3
+      },
+      {
+        "command": "on",
+        "relay": 4
+      },
+      {
+        "command": "on",
+        "relay": 5
+      },
+      {
+        "command": "on",
+        "relay": 6
+      },
       {
         "command": "on",
         "relay": 7
       }
     ],
     [
+      {
+        "command": "off",
+        "relay": 0
+      },
+      {
+        "command": "off",
+        "relay": 1
+      },
+      {
+        "command": "off",
+        "relay": 2
+      },
+      {
+        "command": "off",
+        "relay": 3
+      },
+      {
+        "command": "off",
+        "relay": 4
+      },
+      {
+        "command": "off",
+        "relay": 5
+      },
+      {
+        "command": "off",
+        "relay": 6
+      },
       {
         "command": "off",
         "relay": 7

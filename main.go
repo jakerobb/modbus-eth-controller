@@ -1,21 +1,67 @@
 package main
 
 import (
-  "fmt"
+	"fmt"
+	"io"
+	"os"
 )
 
-//TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
-
 func main() {
-  //TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
-  // to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
-  s := "gopher"
-  fmt.Printf("Hello and welcome, %s!\n", s)
+	var programBytes []byte
+	var err error
 
-  for i := 1; i <= 5; i++ {
-	//TIP <p>To start your debugging session, right-click your code in the editor and select the Debug option.</p> <p>We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-	// for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.</p>
-	fmt.Println("i =", 100/i)
-  }
+	// Check if --server flag is present
+	for _, arg := range os.Args[1:] {
+		if arg == "--server" {
+			StartServer()
+			return
+		}
+	}
+
+	// Read JSON object from stdin
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to stat stdin: %v\n", err)
+		os.Exit(1)
+	}
+
+	programs := readInputPrograms(info, programBytes, err)
+
+	for _, program := range programs {
+		program.Run()
+	}
+}
+
+func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*Program {
+	programs := make([]*Program, 0)
+
+	// Only read stdin if it's being piped or redirected and there is at least one byte available
+	if (info.Mode()&os.ModeCharDevice) == 0 && info.Size() > 0 {
+		programBytes, err := io.ReadAll(os.Stdin)
+		if err == nil {
+			program, err := ParseProgram(programBytes)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to parse program from stdin: %v\n", err)
+				os.Exit(1)
+			}
+			programs = append(programs, program)
+		} else if err.Error() != "EOF" {
+			fmt.Fprintf(os.Stderr, "Failed to read program: %v\n", err)
+		}
+	}
+
+	for i, filename := range os.Args[1:] {
+		programBytes, err = os.ReadFile(filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to read program file %s at argument index %d: %v\n", filename, i, err)
+		} else {
+			program, err := ParseProgram(programBytes)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to parse program from file %s: %v\n", filename, err)
+				os.Exit(1)
+			}
+			programs = append(programs, program)
+		}
+	}
+	return programs
 }
