@@ -4,8 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 )
+
+var slugifyRegexp = regexp.MustCompile(`[^a-z0-9]+`)
 
 type Program struct {
 	Address               string      `json:"address"`
@@ -13,6 +19,39 @@ type Program struct {
 	Loops                 int         `json:"loops,omitempty"`
 	Commands              [][]Command `json:"commands"`
 	Debug                 bool        `json:"debug,omitempty"`
+	LastModified          *time.Time  `json:"lastModified,omitempty"`
+	Path                  string      `json:"-"`
+	Slug                  string      `json:"slug,omitempty"`
+}
+
+func ParseProgramFromFile(path string) (*Program, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	program, err := ParseProgram(data)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	modTime := info.ModTime()
+	program.LastModified = &modTime
+	program.Slug = SlugifyFilename(path)
+	program.Path = path
+	return program, nil
+}
+
+func SlugifyFilename(path string) string {
+	base := filepath.Base(path)
+	ext := filepath.Ext(base)
+	name := strings.TrimSuffix(base, ext)
+	name = strings.ToLower(name)
+	slug := slugifyRegexp.ReplaceAllString(name, "-")
+	slug = strings.Trim(slug, "-")
+	return slug
 }
 
 func ParseProgram(programBytes []byte) (*Program, error) {
@@ -35,7 +74,7 @@ func (p *Program) Run() error {
 		return fmt.Errorf("failed to connect to %s: %w", p.Address, err)
 	}
 	p.logDebug("Connected to %s\n", p.Address)
-	defer conn.Close()
+	defer CloseQuietly(conn)
 
 	loops := p.Loops
 	if loops <= 0 {

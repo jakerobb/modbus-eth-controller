@@ -7,28 +7,32 @@ import (
 )
 
 func main() {
-	var programBytes []byte
-	var err error
-
 	// Check if --server flag is present
 	for _, arg := range os.Args[1:] {
 		if arg == "--server" {
-			StartServer()
+			server := InitServer()
+			server.Start()
 			return
 		}
 	}
 
+	var programBytes []byte
+	var err error
+
 	// Read JSON object from stdin
 	info, err := os.Stdin.Stat()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to stat stdin: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Failed to stat stdin: %v\n", err)
 		os.Exit(1)
 	}
 
 	programs := readInputPrograms(info, programBytes, err)
 
 	for _, program := range programs {
-		program.Run()
+		err = program.Run()
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "Execution of program '%s' failed: %v\n", program.Path, err)
+		}
 	}
 }
 
@@ -41,25 +45,27 @@ func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*Prog
 		if err == nil {
 			program, err := ParseProgram(programBytes)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to parse program from stdin: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from stdin: %v\n", err)
 				os.Exit(1)
 			}
+			program.Path = "[stdin]"
 			programs = append(programs, program)
 		} else if err.Error() != "EOF" {
-			fmt.Fprintf(os.Stderr, "Failed to read program: %v\n", err)
+			_, _ = fmt.Fprintf(os.Stderr, "Failed to read program: %v\n", err)
 		}
 	}
 
 	for i, filename := range os.Args[1:] {
 		programBytes, err = os.ReadFile(filename)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to read program file %s at argument index %d: %v\n", filename, i, err)
+			_, _ = fmt.Fprintf(os.Stderr, "Failed to read program file %s at argument index %d: %v\n", filename, i, err)
 		} else {
 			program, err := ParseProgram(programBytes)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to parse program from file %s: %v\n", filename, err)
+				_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from file %s: %v\n", filename, err)
 				os.Exit(1)
 			}
+			program.Path = filename
 			programs = append(programs, program)
 		}
 	}
