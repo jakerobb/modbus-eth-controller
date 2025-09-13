@@ -39,3 +39,14 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.date }}
             ${{ env.IMAGE_NAME }}:latest
+
+      - name: Report remote image sizes by platform
+        run: |
+          curl -sSfL https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar xz
+          ./crane manifest ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.date }} > manifest.json
+
+          echo "### Remote image sizes by platform" >> $GITHUB_STEP_SUMMARY
+          jq -r '.manifests[] | [.platform.architecture, .size] | @tsv' manifest.json | while IFS=$'\t' read -r arch size; do
+            human=$(numfmt --to=iec --suffix=B "$size")
+            echo "- $arch: \`$human\`" >> $GITHUB_STEP_SUMMARY
+          done
