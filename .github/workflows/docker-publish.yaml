@@ -26,7 +26,8 @@ jobs:
 
       - name: Generate Swagger docs
         run: |
-          go run github.com/swaggo/swag/cmd/swag init
+          cd src
+          go run github.com/swaggo/swag/cmd/swag init -d cmd,pkg
 
       - name: Commit and push changes
         run: |
