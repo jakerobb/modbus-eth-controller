@@ -9,13 +9,36 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
     env:
       IMAGE_NAME: jakerobb/modbus-eth-controller
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger docs
+        run: |
+          go run github.com/swaggo/swag/cmd/swag init
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: auto-update swagger docs"
+            git push
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -25,6 +48,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull existing image for cache
+        run: docker pull ${IMAGE_NAME}:latest || true
 
       - name: Get current date
         id: date
@@ -46,7 +72,10 @@ jobs:
           ./crane manifest ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.date }} > manifest.json
 
           echo "### Remote image sizes by platform" >> $GITHUB_STEP_SUMMARY
-          jq -r '.manifests[] | [.platform.architecture, .size] | @tsv' manifest.json | while IFS=$'\t' read -r arch size; do
-            human=$(numfmt --to=iec --suffix=B "$size")
+          for digest in $(jq -r '.manifests[].digest' manifest.json); do
+            arch=$(jq -r --arg d "$digest" '.manifests[] | select(.digest == $d) | .platform.architecture' manifest.json)
+            ./crane manifest ${{ env.IMAGE_NAME }}@$digest > arch-manifest.json
+            total=$(jq '[.layers[].size] | add' arch-manifest.json)
+            human=$(numfmt --to=iec --suffix=B "$total")
             echo "- $arch: \`$human\`" >> $GITHUB_STEP_SUMMARY
           done

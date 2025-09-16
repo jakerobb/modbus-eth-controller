@@ -2,10 +2,14 @@ FROM golang:1.25 AS builder
 
 WORKDIR /app
 
-COPY *.go .
-COPY *.mod .
+COPY src/go.mod .
+COPY src/go.sum .
+RUN go mod download
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o modbus-eth-controller
+COPY src/ .
+RUN ls -Rla
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o modbus-eth-controller "./cmd"
 
 FROM scratch
 

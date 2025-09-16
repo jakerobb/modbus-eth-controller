@@ -1,17 +1,38 @@
+// @title           Modbus ETH Controller API
+// @version         1.0
+// @description     API for controlling and querying Modbus Ethernet relay devices
+
+// @contact.name   Jake Robb
+// @contact.url    https://github.com/jakerobb
+// @contact.email  jakerobb@gmail.com
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /
+
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/jakerobb/modbus-eth-controller/pkg/api"
+	"github.com/jakerobb/modbus-eth-controller/pkg/server"
 )
 
 func main() {
-	// Check if --server flag is present
 	for _, arg := range os.Args[1:] {
+		if arg == "--help" {
+			printUsage()
+			return
+		}
 		if arg == "--server" {
-			server := InitServer()
-			server.Start()
+			s := server.InitServer()
+			s.Start()
 			return
 		}
 	}
@@ -19,7 +40,6 @@ func main() {
 	var programBytes []byte
 	var err error
 
-	// Read JSON object from stdin
 	info, err := os.Stdin.Stat()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Failed to stat stdin: %v\n", err)
@@ -28,22 +48,30 @@ func main() {
 
 	programs := readInputPrograms(info, programBytes, err)
 
+	if len(programs) == 0 {
+		printUsage()
+		os.Exit(1)
+	}
+
+	ctx := context.Background()
+
 	for _, program := range programs {
-		err = program.Run()
+		ctx := context.WithValue(ctx, "debug", program.Debug)
+		err = program.Run(ctx)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Execution of program '%s' failed: %v\n", program.Path, err)
 		}
 	}
 }
 
-func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*Program {
-	programs := make([]*Program, 0)
+func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*api.Program {
+	programs := make([]*api.Program, 0)
 
 	// Only read stdin if it's being piped or redirected and there is at least one byte available
 	if (info.Mode()&os.ModeCharDevice) == 0 && info.Size() > 0 {
 		programBytes, err := io.ReadAll(os.Stdin)
 		if err == nil {
-			program, err := ParseProgram(programBytes)
+			program, err := api.ParseProgram(programBytes)
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from stdin: %v\n", err)
 				os.Exit(1)
@@ -60,7 +88,7 @@ func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*Prog
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Failed to read program file %s at argument index %d: %v\n", filename, i, err)
 		} else {
-			program, err := ParseProgram(programBytes)
+			program, err := api.ParseProgram(programBytes)
 			if err != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from file %s: %v\n", filename, err)
 				os.Exit(1)
@@ -70,4 +98,16 @@ func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*Prog
 		}
 	}
 	return programs
+}
+
+func printUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  modbus-eth-controller --server")
+	fmt.Println("      Start the server mode.")
+	fmt.Println("  modbus-eth-controller --help")
+	fmt.Println("      Show this help message.")
+	fmt.Println("  modbus-eth-controller < input.json")
+	fmt.Println("      Provide JSON input via stdin.")
+	fmt.Println("  modbus-eth-controller file1.json [file2.json ...]")
+	fmt.Println("      Provide JSON input via one or more file paths.")
 }

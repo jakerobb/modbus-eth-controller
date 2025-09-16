@@ -5,13 +5,13 @@
     [
       {
         "command": "on",
-        "relay": 7
+        "relay": 8
       }
     ],
     [
       {
         "command": "off",
-        "relay": 7
+        "relay": 8
       }
     ]
   ]

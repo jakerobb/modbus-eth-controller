@@ -1,0 +1,294 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API for controlling and querying Modbus Ethernet relay devices",
+        "title": "Modbus ETH Controller API",
+        "contact": {
+            "name": "Jake Robb",
+            "url": "https://github.com/jakerobb",
+            "email": "jakerobb@gmail.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/programs": {
+            "get": {
+                "description": "Returns all available programs keyed by slug",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "programs"
+                ],
+                "summary": "List known programs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.ProgramsBySlugExample"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/run": {
+            "post": {
+                "description": "Executes programs in order. You can provide:\n1. A program in the request body\n2. Program slug(s) via the `program` query parameter\n3. Both — the body program runs first, then the slugged programs in order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "run"
+                ],
+                "summary": "Run one or more programs",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Program slug (repeatable)",
+                        "name": "program",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Inline program to run",
+                        "name": "program",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.Program"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.RunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "if the request body is malformed",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "if a named program is not found",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/status": {
+            "get": {
+                "description": "Returns the current state of all relays for the specified Modbus device",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "status"
+                ],
+                "summary": "Get status of all relays",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Modbus device IP or hostname and port number",
+                        "name": "address",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/modbus.CoilStates"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/server.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.Command": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.RelayCommand"
+                        }
+                    ],
+                    "example": "toggle"
+                },
+                "relay": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "api.Program": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "modbus.lan:4196"
+                },
+                "commandIntervalMillis": {
+                    "type": "integer",
+                    "example": 200
+                },
+                "commands": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/api.Command"
+                        }
+                    }
+                },
+                "debug": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "lastModified": {
+                    "type": "string",
+                    "example": "2025-09-14T12:00:00Z"
+                },
+                "loops": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "path": {
+                    "type": "string",
+                    "example": "/etc/modbus/doorbell.json"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "doorbell"
+                }
+            }
+        },
+        "api.RelayCommand": {
+            "type": "string",
+            "enum": [
+                "on",
+                "off",
+                "toggle"
+            ],
+            "x-enum-varnames": [
+                "RelayCommandOn",
+                "RelayCommandOff",
+                "RelayCommandToggle"
+            ]
+        },
+        "modbus.CoilStates": {
+            "type": "object",
+            "properties": {
+                "coils": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                }
+            }
+        },
+        "server.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Invalid relay number"
+                },
+                "status": {
+                    "type": "integer",
+                    "example": 500
+                }
+            }
+        },
+        "server.ProgramResult": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "relay 1 timed out"
+                },
+                "executionTimeMillis": {
+                    "type": "integer",
+                    "example": 153
+                },
+                "program": {
+                    "$ref": "#/definitions/api.Program"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "doorbell"
+                },
+                "startTime": {
+                    "type": "string",
+                    "example": "2025-01-01T12:00:00Z"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "success"
+                }
+            }
+        },
+        "server.ProgramsBySlugExample": {
+            "type": "object",
+            "properties": {
+                "doorbell": {
+                    "$ref": "#/definitions/api.Program"
+                }
+            }
+        },
+        "server.RunResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/server.ProgramResult"
+                    }
+                },
+                "status": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/modbus.CoilStates"
+                    }
+                }
+            }
+        }
+    }
+}

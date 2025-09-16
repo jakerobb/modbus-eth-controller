@@ -1,0 +1,203 @@
+basePath: /
+definitions:
+  api.Command:
+    properties:
+      command:
+        allOf:
+        - $ref: '#/definitions/api.RelayCommand'
+        example: toggle
+      relay:
+        example: 1
+        type: integer
+    type: object
+  api.Program:
+    properties:
+      address:
+        example: modbus.lan:4196
+        type: string
+      commandIntervalMillis:
+        example: 200
+        type: integer
+      commands:
+        items:
+          items:
+            $ref: '#/definitions/api.Command'
+          type: array
+        type: array
+      debug:
+        example: true
+        type: boolean
+      lastModified:
+        example: "2025-09-14T12:00:00Z"
+        type: string
+      loops:
+        example: 2
+        type: integer
+      path:
+        example: /etc/modbus/doorbell.json
+        type: string
+      slug:
+        example: doorbell
+        type: string
+    type: object
+  api.RelayCommand:
+    enum:
+    - "on"
+    - "off"
+    - toggle
+    type: string
+    x-enum-varnames:
+    - RelayCommandOn
+    - RelayCommandOff
+    - RelayCommandToggle
+  modbus.CoilStates:
+    properties:
+      coils:
+        additionalProperties:
+          type: boolean
+        type: object
+    type: object
+  server.ErrorResponse:
+    properties:
+      message:
+        example: Invalid relay number
+        type: string
+      status:
+        example: 500
+        type: integer
+    type: object
+  server.ProgramResult:
+    properties:
+      error:
+        example: relay 1 timed out
+        type: string
+      executionTimeMillis:
+        example: 153
+        type: integer
+      program:
+        $ref: '#/definitions/api.Program'
+      slug:
+        example: doorbell
+        type: string
+      startTime:
+        example: "2025-01-01T12:00:00Z"
+        type: string
+      status:
+        example: success
+        type: string
+    type: object
+  server.ProgramsBySlugExample:
+    properties:
+      doorbell:
+        $ref: '#/definitions/api.Program'
+    type: object
+  server.RunResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/server.ProgramResult'
+        type: array
+      status:
+        additionalProperties:
+          $ref: '#/definitions/modbus.CoilStates'
+        type: object
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: jakerobb@gmail.com
+    name: Jake Robb
+    url: https://github.com/jakerobb
+  description: API for controlling and querying Modbus Ethernet relay devices
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Modbus ETH Controller API
+  version: "1.0"
+paths:
+  /programs:
+    get:
+      description: Returns all available programs keyed by slug
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.ProgramsBySlugExample'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: List known programs
+      tags:
+      - programs
+  /run:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Executes programs in order. You can provide:
+        1. A program in the request body
+        2. Program slug(s) via the `program` query parameter
+        3. Both — the body program runs first, then the slugged programs in order
+      parameters:
+      - collectionFormat: multi
+        description: Program slug (repeatable)
+        in: query
+        items:
+          type: string
+        name: program
+        type: array
+      - description: Inline program to run
+        in: body
+        name: program
+        schema:
+          $ref: '#/definitions/api.Program'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.RunResponse'
+        "400":
+          description: if the request body is malformed
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: if a named program is not found
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Run one or more programs
+      tags:
+      - run
+  /status:
+    get:
+      description: Returns the current state of all relays for the specified Modbus
+        device
+      parameters:
+      - description: Modbus device IP or hostname and port number
+        in: query
+        name: address
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modbus.CoilStates'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Get status of all relays
+      tags:
+      - status
+swagger: "2.0"
