@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/jakerobb/modbus-eth-controller/pkg"
 	"github.com/jakerobb/modbus-eth-controller/pkg/modbus"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 var slugifyRegexp = regexp.MustCompile(`[^a-z0-9]+`)
@@ -87,22 +87,22 @@ func (p *Program) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer CloseQuietly(conn)
+	defer util.CloseQuietly(conn)
 
 	loops := p.Loops
 	if loops <= 0 {
 		loops = 1
 	}
 
-	LogDebug(ctx, "Parsed program: %+v\n", p)
+	util.LogDebug(ctx, "Parsed program: %+v\n", p)
 
-	LogDebug(ctx, "Starting command execution for %d loops\n", loops)
+	util.LogDebug(ctx, "Starting command execution for %d loops\n", loops)
 	for i := 0; i < loops; i++ {
-		LogDebug(ctx, "Loop %d/%d\n", i+1, loops)
+		util.LogDebug(ctx, "Loop %d/%d\n", i+1, loops)
 		for j, cmdGroup := range p.Commands {
-			LogDebug(ctx, "  Executing command group %d: %+v\n", j+1, cmdGroup)
+			util.LogDebug(ctx, "  Executing command group %d: %+v\n", j+1, cmdGroup)
 			for k, cmd := range cmdGroup {
-				LogDebug(ctx, "    Executing command %d: %+v\n", k+1, cmd)
+				util.LogDebug(ctx, "    Executing command %d: %+v\n", k+1, cmd)
 				modbusMessage := cmd.BuildMessage()
 				_, _, err := modbus.Send(ctx, conn, modbusMessage)
 				if err != nil {
@@ -111,7 +111,7 @@ func (p *Program) Run(ctx context.Context) error {
 			}
 
 			if p.CommandIntervalMillis > 0 {
-				LogDebug(ctx, "  Waiting for %d milliseconds before next command group\n", p.CommandIntervalMillis)
+				util.LogDebug(ctx, "  Waiting for %d milliseconds before next command group\n", p.CommandIntervalMillis)
 				time.Sleep(time.Duration(p.CommandIntervalMillis) * time.Millisecond)
 			}
 		}

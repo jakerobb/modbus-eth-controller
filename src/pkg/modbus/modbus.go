@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"net"
 
-	. "github.com/jakerobb/modbus-eth-controller/pkg"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 func Connect(ctx context.Context, addr string) (net.Conn, error) {
-	LogDebug(ctx, "Connecting to %s\n", addr)
+	util.LogDebug(ctx, "Connecting to %s\n", addr)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", addr, err)
 	}
-	LogDebug(ctx, "Connected to %s\n", addr)
+	util.LogDebug(ctx, "Connected to %s\n", addr)
 	return conn, nil
 }
 
@@ -23,11 +23,11 @@ func GetStatus(ctx context.Context, addr string) (*CoilStates, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer CloseQuietly(conn)
+	defer util.CloseQuietly(conn)
 
-	coilCount, err := DiscoverRelayCount(ctx, conn)
+	coilCount, err := GetRelayCount(ctx, addr, conn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to discover relay count for %s: %w", addr, err)
+		return nil, fmt.Errorf("failed to get relay count for %s: %w", addr, err)
 	}
 
 	msgData := NewReadCoils(0, coilCount)

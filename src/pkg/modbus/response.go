@@ -6,7 +6,7 @@ import (
 	"io"
 	"net"
 
-	. "github.com/jakerobb/modbus-eth-controller/pkg"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 type Response struct {
@@ -45,7 +45,7 @@ func ReadResponse(ctx context.Context, conn net.Conn) (*Response, error) {
 		return nil, err
 	}
 
-	LogDebug(ctx, "      Response: % X % X\n", header, payload)
+	util.LogDebug(ctx, "      Response: % X % X\n", header, payload)
 
 	return &Response{
 		MessageHeader: messageHeader,

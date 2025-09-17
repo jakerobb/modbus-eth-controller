@@ -7,7 +7,6 @@ COPY src/go.sum .
 RUN go mod download
 
 COPY src/ .
-RUN ls -Rla
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o modbus-eth-controller "./cmd"
 
@@ -19,7 +18,7 @@ COPY /sample-programs/*.json /etc/modbus/
 
 VOLUME ["/etc/modbus"]
 
-EXPOSE 8008
+EXPOSE 8080
 
 # Run the binary
 ENTRYPOINT ["/modbus-eth-controller", "--server"]

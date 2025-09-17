@@ -71,10 +71,17 @@ jobs:
         run: |
           curl -sSfL https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar xz
           ./crane manifest ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.date }} > manifest.json
-
+          
           echo "### Remote image sizes by platform" >> $GITHUB_STEP_SUMMARY
           for digest in $(jq -r '.manifests[].digest' manifest.json); do
-            arch=$(jq -r --arg d "$digest" '.manifests[] | select(.digest == $d) | .platform.architecture' manifest.json)
+            arch=$(jq -r --arg d "$digest" '.manifests[] | select(.digest == $d) | .platform.architecture // empty' manifest.json)
+            os=$(jq -r --arg d "$digest" '.manifests[] | select(.digest == $d) | .platform.os // empty' manifest.json)
+          
+            # Skip manifests with no known platform (e.g., manifest lists)
+            if [ -z "$arch" ] || [ -z "$os" ]; then
+              continue
+            fi
+          
             ./crane manifest ${{ env.IMAGE_NAME }}@$digest > arch-manifest.json
             total=$(jq '[.layers[].size] | add' arch-manifest.json)
             human=$(numfmt --to=iec --suffix=B "$total")

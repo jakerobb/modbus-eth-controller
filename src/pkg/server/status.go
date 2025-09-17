@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,7 +21,13 @@ import (
 // @Router       /status [get]
 func (server *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	addr := r.URL.Query().Get("address")
-	relayStates, err := modbus.GetStatus(r.Context(), addr)
+	ctx := r.Context()
+	query := r.URL.Query()
+	debugParam := query.Get("debug")
+	if debugParam == "true" {
+		ctx = context.WithValue(ctx, "debug", true)
+	}
+	relayStates, err := modbus.GetStatus(ctx, addr)
 	if err != nil {
 		server.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read relay states: %v", err))
 		return

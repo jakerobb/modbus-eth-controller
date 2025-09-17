@@ -56,8 +56,11 @@ func main() {
 	ctx := context.Background()
 
 	for _, program := range programs {
-		ctx := context.WithValue(ctx, "debug", program.Debug)
-		err = program.Run(ctx)
+		programCtx := ctx
+		if program.Debug {
+			programCtx = context.WithValue(ctx, "debug", program.Debug)
+		}
+		err = program.Run(programCtx)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Execution of program '%s' failed: %v\n", program.Path, err)
 		}

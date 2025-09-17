@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	. "github.com/jakerobb/modbus-eth-controller/pkg"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 var lastTransactionId uint16 = 0
@@ -75,7 +75,7 @@ func (m *Message) ToBytes() []byte {
 
 func (m *Message) sendMessage(ctx context.Context, conn net.Conn) (*Response, error) {
 	messageBytes := m.ToBytes()
-	LogDebug(ctx, "      Sending:  % X\n", messageBytes)
+	util.LogDebug(ctx, "      Sending:  % X\n", messageBytes)
 	_, err := conn.Write(messageBytes)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func Send(ctx context.Context, conn net.Conn, messageData MessageData) (*Message
 	}
 
 	if err = checkForException(response); err != nil {
-		LogDebug(ctx, "      Got an exception response! %s\n", err.Error())
+		util.LogDebug(ctx, "      Got an exception response! %s\n", err.Error())
 		return nil, nil, err
 	}
 
@@ -104,7 +104,7 @@ func Send(ctx context.Context, conn net.Conn, messageData MessageData) (*Message
 	if err != nil {
 		return nil, nil, err
 	}
-	LogDebug(ctx, "      Response is valid!\n")
+	util.LogDebug(ctx, "      Response is valid!\n")
 	parseResponse, err := messageData.ParseResponse(response)
 	return msg, parseResponse, err
 }
