@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY src/ .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o modbus-eth-controller "./cmd"
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o modbus-eth-controller "./cmd"
 
 FROM scratch
 
