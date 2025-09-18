@@ -51,6 +51,7 @@ func (server *Server) Start() {
 	http.HandleFunc("/run", server.handleRun)
 	http.HandleFunc("/programs", server.handlePrograms)
 	http.HandleFunc("/status", server.handleStatus)
+	http.Handle("/", http.FileServer(http.FS(staticContent)))
 	http.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	fmt.Printf("Starting server on %s:%s\n", listenAddr, listenPort)

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Modbus Controller</title>
+</head>
+<body>
+<h1>Stored Programs</h1>
+<div id="programs"></div>
+
+<h2>Manual JSON</h2>
+<label>
+    Enter JSON command:
+    <textarea id="jsonInput" rows="10" cols="50"></textarea><br/>
+</label>
+<button onclick="submitJson()">Submit</button>
+
+<script>
+  // Load and render program buttons
+  fetch('/programs')
+    .then(res => res.json())
+    .then(programs => {
+      const container = document.getElementById('programs');
+      Object.keys(programs).sort().forEach(name => {
+        const btn = document.createElement('button');
+        btn.textContent = name;
+        btn.onclick = () => {
+          fetch('/run', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({program: name})
+          });
+        };
+        container.appendChild(btn);
+      });
+    });
+
+  // Manual JSON submission
+  function submitJson() {
+    const input = document.getElementById('jsonInput').value;
+    fetch('/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: input
+    });
+  }
+</script>
+</body>
+</html>
