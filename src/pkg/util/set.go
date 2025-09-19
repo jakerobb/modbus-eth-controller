@@ -1,7 +1,5 @@
 package util
 
-import "fmt"
-
 type Set struct {
 	elements map[string]bool
 	count    int
@@ -36,7 +34,6 @@ func (s *Set) Contains(element string) bool {
 }
 
 func (s *Set) ToArray() []string {
-	fmt.Printf("Set has %d elements: %v\n", s.count, s.elements)
 	result := make([]string, s.count)
 	for key, exists := range s.elements {
 		if exists {

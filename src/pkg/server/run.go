@@ -182,6 +182,9 @@ func (server *Server) collectRelayStates(ctx context.Context, w http.ResponseWri
 
 	relayStatesByServer := make(map[string]*modbus.CoilStates)
 	for _, serverAddr := range servers {
+		if len(serverAddr) == 0 {
+			continue
+		}
 		relayStates, err := modbus.GetStatus(ctx, serverAddr)
 		if err != nil {
 			server.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get status after running programs: %v", err))

@@ -24,10 +24,10 @@
         const btn = document.createElement('button');
         btn.textContent = name;
         btn.onclick = () => {
-          fetch('/run', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({program: name})
+          fetch(`/run?program=${encodeURIComponent(name)}`, {
+            method: 'POST'
+          }).then(res => {
+            if (!res.ok) return res.json().then(err => { alert(err.message || 'Unknown error'); });
           });
         };
         container.appendChild(btn);
@@ -41,6 +41,8 @@
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: input
+    }).then(res => {
+      if (!res.ok) return res.json().then(err => { alert(err.message || 'Unknown error'); });
     });
   }
 </script>
