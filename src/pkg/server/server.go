@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/swaggo/http-swagger"
 
@@ -13,8 +14,9 @@ import (
 )
 
 type Server struct {
-	ProgramDir string
-	Registry   *registry.Registry
+	ProgramDir  string
+	Registry    *registry.Registry
+	AllowOrigin string
 }
 
 type ErrorResponse struct {
@@ -28,13 +30,50 @@ func InitServer() *Server {
 		programDir = "/etc/modbus"
 	}
 
+	allowOrigin := os.Getenv("ALLOW_ORIGIN")
+	if allowOrigin == "" {
+		allowOrigin = "*"
+	}
+
 	server := &Server{
-		ProgramDir: programDir,
-		Registry:   registry.NewRegistry(),
+		ProgramDir:  programDir,
+		Registry:    registry.NewRegistry(),
+		AllowOrigin: allowOrigin,
 	}
 
 	server.Registry.LoadProgramsFromDir(programDir)
 	return server
+}
+
+func (server *Server) handleWithCORS(path string, h http.HandlerFunc, methods ...string) {
+	allowedMethods := append([]string{"OPTIONS"}, methods...)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", server.AllowOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		methodAllowed := false
+		for _, m := range methods {
+			if r.Method == m {
+				methodAllowed = true
+				break
+			}
+		}
+		if !methodAllowed {
+			server.RespondWithError(w, http.StatusMethodNotAllowed, fmt.Sprintf("%s method not allowed", r.Method))
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
+
+	http.Handle(path, handler)
 }
 
 func (server *Server) Start() {
@@ -48,11 +87,11 @@ func (server *Server) Start() {
 		listenPort = "8080"
 	}
 
-	http.HandleFunc("/run", server.handleRun)
-	http.HandleFunc("/programs", server.handlePrograms)
-	http.HandleFunc("/status", server.handleStatus)
-	http.Handle("/", http.FileServer(http.FS(staticContent)))
-	http.Handle("/swagger/", httpSwagger.WrapHandler)
+	server.handleWithCORS("/run", server.handleRun, "POST")
+	server.handleWithCORS("/programs", server.handlePrograms, "GET")
+	server.handleWithCORS("/status", server.handleStatus, "GET")
+	server.handleWithCORS("/", http.FileServer(http.FS(staticContent)).ServeHTTP, "GET")
+	server.handleWithCORS("/swagger/", httpSwagger.WrapHandler.ServeHTTP, "GET")
 
 	fmt.Printf("Starting server on %s:%s\n", listenAddr, listenPort)
 	err := http.ListenAndServe(fmt.Sprintf("%s:%s", listenAddr, listenPort), nil)

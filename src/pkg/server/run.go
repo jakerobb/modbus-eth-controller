@@ -50,11 +50,6 @@ type ProgramResult struct {
 // @Failure      500 {object} server.ErrorResponse
 // @Router       /run [post]
 func (server *Server) handleRun(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		server.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	var err error
 	programs := make([]*api.Program, 0)
 

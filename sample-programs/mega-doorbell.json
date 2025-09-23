@@ -39,10 +39,6 @@
     [
       {
         "command": "off",
-        "relay": 0
-      },
-      {
-        "command": "off",
         "relay": 1
       },
       {
@@ -68,6 +64,10 @@
       {
         "command": "off",
         "relay": 7
+      },
+      {
+        "command": "off",
+        "relay": 8
       }
     ]
   ]

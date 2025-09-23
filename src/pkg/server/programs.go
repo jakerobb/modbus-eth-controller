@@ -24,11 +24,6 @@ type ProgramsBySlugExample struct {
 // @Failure      500 {object} server.ErrorResponse
 // @Router       /programs [get]
 func (server *Server) handlePrograms(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		server.RespondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	err := encoder.Encode(server.Registry.Programs)
