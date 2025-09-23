@@ -1,50 +1,351 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <title>Modbus Controller</title>
-</head>
-<body>
-<h1>Stored Programs</h1>
-<div id="programs"></div>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        font-size: 18px;
+      }
 
-<h2>Manual JSON</h2>
-<label>
-    Enter JSON command:
-    <textarea id="jsonInput" rows="10" cols="50"></textarea><br/>
-</label>
-<button onclick="submitJson()">Submit</button>
+      button {
+        padding: 10px 20px;
+        font-size: 20px;
+        border-radius: 10px;
+        cursor: pointer;
+        border: 1px solid #aaa;
+        background: #e0f0ff;
+        box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2);
+        margin-bottom: 5px;
+        margin-right: 5px;
+      }
 
-<script>
-  // Load and render program buttons
-  fetch('/programs')
-    .then(res => res.json())
-    .then(programs => {
-      const container = document.getElementById('programs');
-      Object.keys(programs).sort().forEach(name => {
+      button:active {
+        box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.2);
+      }
+
+      textarea {
+        font-family: Courier New, monospace;
+        font-size: 16px;
+        margin-bottom: 5px;
+      }
+
+      #contents {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+
+      #left, #right {
+        vertical-align: top;
+      }
+
+      .section {
+        margin-bottom: 50px;
+      }
+
+      #programs {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      #manualEntrySection label {
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      #apiDocLink {
+        float: right;
+      }
+
+      .statusTable {
+        margin-left: 10px;
+      }
+
+      .statusHeader th {
+        font-weight: normal;
+        text-align: center;
+        width: 40px;
+        font-size: 16px;
+      }
+
+      .statusValue td {
+        text-align: center;
+        width: 40px;
+        font-size: 24px;
+      }
+
+      .running {
+        display: none;
+      }
+
+      .programDetails {
+        margin-left: 20px;
+        margin-bottom: 10px;
+      }
+
+      .program button {
+        margin-left: 20px;
+      }
+
+      #response {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Modbus Controller</h1>
+    <div id="contents">
+      <div id="left">
+        <div id="programsSection" class="section">
+          <h2>Stored Programs</h2>
+          <div id="programs"></div>
+        </div>
+        <div id="manualEntrySection" class="section">
+          <h2>Manual Entry</h2>
+          <label for="jsonInput">
+            Enter JSON command
+            <a id="apiDocLink" href="/swagger" target="_blank">API docs</a>
+          </label>
+          <textarea id="jsonInput" rows="50" cols="80"></textarea><br/>
+          <button onclick="submitJson()">Submit</button>
+        </div>
+      </div>
+      <div id="right">
+        <button onclick="clearResults()">Clear Results</button>
+
+        <div id="statusSection" class="section">
+          <h2>Status</h2>
+          <div class="running">
+            <img src="loading.gif" alt="Loading..."/>
+          </div>
+          <div id="status">
+            No commands executed yet.
+          </div>
+        </div>
+        <div id="resultsSection" class="section">
+          <h2>Execution Results</h2>
+          <div class="running">
+            <img src="loading.gif" alt="Loading..."/>
+          </div>
+          <div id="results"></div>
+        </div>
+        <div id="responseSection" class="section">
+          <h2>JSON response</h2>
+          <button id="toggleResponseButton" onclick="toggleResponse()" style="display:none">Show JSON response</button>
+          <div class="running">
+            <img src="loading.gif" alt="Loading..."/>
+          </div>
+          <div id="response"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      onLoad();
+
+      // set to "http://localhost:8080" for local testing
+      const API_BASE = "";
+
+      function submitJson() {
+        const input = document.getElementById('jsonInput').value;
+        fetch(`${API_BASE}/run`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: input
+        }).then(handleResponse);
+      }
+
+      function clearResults() {
+        document.getElementById('status').innerHTML = '';
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('response').innerHTML = '';
+        // Also hide toggle button
+        document.getElementById('toggleResponseButton').style.display = 'none';
+      }
+
+      function toggleResponse() {
+        const responseDiv = document.getElementById('response');
+        const toggleButton = document.getElementById('toggleResponseButton');
+        if (responseDiv.style.display === 'block') {
+          responseDiv.style.display = 'none';
+          toggleButton.textContent = 'Show JSON response';
+        } else {
+          responseDiv.style.display = 'block';
+          toggleButton.textContent = 'Hide JSON response';
+        }
+      }
+
+      function onLoad() {
+        fetch(`${API_BASE}/programs`)
+          .then(res => res.json())
+          .then(programs => {
+            const container = document.getElementById('programs');
+            Object.keys(programs).sort().forEach(name => {
+              container.appendChild(createButton(name));
+            });
+          });
+      }
+
+      function createButton(name) {
         const btn = document.createElement('button');
         btn.textContent = name;
         btn.onclick = () => {
-          fetch(`/run?program=${encodeURIComponent(name)}`, {
+          fetch(`${API_BASE}/run?program=${encodeURIComponent(name)}`, {
             method: 'POST'
-          }).then(res => {
-            if (!res.ok) return res.json().then(err => { alert(err.message || 'Unknown error'); });
-          });
+          }).then(handleResponse);
+          setRunningIndicators(true);
         };
-        container.appendChild(btn);
-      });
-    });
+        return btn;
+      }
 
-  // Manual JSON submission
-  function submitJson() {
-    const input = document.getElementById('jsonInput').value;
-    fetch('/run', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: input
-    }).then(res => {
-      if (!res.ok) return res.json().then(err => { alert(err.message || 'Unknown error'); });
-    });
-  }
-</script>
-</body>
+      function setRunningIndicators(visible) {
+        const display = visible ? 'block' : 'none';
+        const els = document.getElementsByClassName('running');
+
+        Array.from(els).forEach(el => {
+          el.style.display = display;
+        });
+      }
+
+      function handleResponse(res) {
+        res.json().then(resp => {
+          setRunningIndicators(false);
+          const statusDiv = document.getElementById('status');
+          statusDiv.innerHTML = '';
+          const resultsDiv = document.getElementById('results');
+          resultsDiv.innerHTML = '';
+          const responseDiv = document.getElementById('response');
+          responseDiv.innerHTML = '';
+
+          if (res.ok) {
+            renderStatus(resp.status, statusDiv);
+            renderResults(resp.results, resultsDiv);
+            renderResponse(resp, responseDiv);
+          } else {
+            const msg = document.createElement('p');
+            msg.textContent = `Error: ${resp.message || 'Unknown error'}`;
+            resultsDiv.appendChild(msg);
+          }
+        });
+      }
+
+      function renderStatus(status, container) {
+        Object.keys(status).forEach(server => {
+          const serverDiv = document.createElement('div');
+          const title = document.createElement('h3');
+          title.textContent = `Server: ${server}`;
+          serverDiv.appendChild(title);
+          serverDiv.className = 'serverStatus';
+
+          const statusTable = document.createElement('table');
+          statusTable.className = 'statusTable';
+
+          const headerRow = document.createElement('tr');
+          headerRow.className = 'statusHeader';
+
+          const valueRow = document.createElement('tr');
+          valueRow.className = 'statusValue';
+
+          for (const [coilNumber, coilStatus] of Object.entries(status[server].coils)) {
+            const headerCell = document.createElement('th');
+            headerCell.textContent = coilNumber;
+            headerRow.appendChild(headerCell);
+
+            const valueCell = document.createElement('td');
+            valueCell.innerHTML = coilStatusIcon(coilStatus);
+            valueRow.appendChild(valueCell);
+          }
+
+          statusTable.appendChild(headerRow);
+          statusTable.appendChild(valueRow);
+          serverDiv.appendChild(statusTable);
+
+          container.appendChild(serverDiv);
+        });
+
+        const pre = document.createElement('pre');
+        pre.textContent = JSON.stringify(status, null, 2);
+      }
+
+      function coilStatusIcon(status) {
+        return status ? '&#x1F4A1;' : '&#x23FC;';
+      }
+
+      function renderResults(results, container) {
+        results.forEach((result) => {
+
+          const programDiv = document.createElement('div');
+          programDiv.className = 'program';
+          container.appendChild(programDiv);
+
+          const titleDiv = document.createElement('h3');
+          titleDiv.innerHTML = `Program: ${result.slug} ${programStatusIcon(result.status)}`
+          programDiv.appendChild(titleDiv);
+
+          const detailsDiv = document.createElement('div');
+          detailsDiv.className = 'programDetails';
+          programDiv.appendChild(detailsDiv);
+
+          const executionTimeDiv = document.createElement('div');
+          executionTimeDiv.textContent = `Execution Time: ${result.executionTimeMillis} ms`;
+          detailsDiv.appendChild(executionTimeDiv);
+
+          const startTimeDiv = document.createElement('div');
+          startTimeDiv.textContent = `Start Time: ${new Date(result.startTime).toLocaleString()}`;
+          detailsDiv.appendChild(startTimeDiv);
+
+          if (result.program.path) {
+            // only show if available (i.e. not manual entry)
+            const pathDiv = document.createElement('div');
+            pathDiv.textContent = `Path: ${result.program.path}`;
+            detailsDiv.appendChild(pathDiv);
+          }
+
+          if (result.program.lastModified) {
+            const lastModifiedDiv = document.createElement('div');
+            lastModifiedDiv.textContent = `Last Modified: ${new Date(result.program.lastModified).toLocaleString()}`;
+            detailsDiv.appendChild(lastModifiedDiv);
+          }
+
+          const copyButton = document.createElement('button');
+          copyButton.innerHTML = '&#x2B05;&#xFE0F; Copy JSON to Manual Entry';
+          copyButton.onclick = () => {
+            const jsonInput = document.getElementById('jsonInput');
+            const programCopy = {...result.program};
+            delete programCopy.path;
+            delete programCopy.lastModified;
+            delete programCopy.slug;
+            jsonInput.value = JSON.stringify(programCopy, null, 2);
+            jsonInput.scrollIntoView({behavior: 'smooth'});
+            jsonInput.focus();
+          };
+          programDiv.appendChild(copyButton);
+        });
+      }
+
+      function programStatusIcon(status) {
+        switch (status) {
+          case 'success':
+            return '&#x2705;'; // check mark
+          case 'failure':
+            return '&#x274C;'; // cross mark
+          default:
+            return '&#x2753;'; // question mark
+        }
+      }
+
+      function renderResponse(response, container) {
+        const pre = document.createElement('pre');
+        pre.textContent = JSON.stringify(response, null, 2);
+        container.appendChild(pre);
+        // Show the toggle button
+        document.getElementById('toggleResponseButton').style.display = 'inline-block';
+      }
+    </script>
+  </body>
 </html>
