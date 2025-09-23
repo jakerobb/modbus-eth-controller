@@ -162,7 +162,6 @@
         document.getElementById('status').innerHTML = '';
         document.getElementById('results').innerHTML = '';
         document.getElementById('response').innerHTML = '';
-        // Also hide toggle button
         document.getElementById('toggleResponseButton').style.display = 'none';
       }
 
@@ -298,7 +297,6 @@
           detailsDiv.appendChild(startTimeDiv);
 
           if (result.program.path) {
-            // only show if available (i.e. not manual entry)
             const pathDiv = document.createElement('div');
             pathDiv.textContent = `Path: ${result.program.path}`;
             detailsDiv.appendChild(pathDiv);
@@ -341,7 +339,6 @@
         const pre = document.createElement('pre');
         pre.textContent = JSON.stringify(response, null, 2);
         container.appendChild(pre);
-        // Show the toggle button
         document.getElementById('toggleResponseButton').style.display = 'inline-block';
       }
 
