@@ -110,7 +110,7 @@ func (p *Program) Run(ctx context.Context) error {
 				}
 			}
 
-			if p.CommandIntervalMillis > 0 {
+			if p.CommandIntervalMillis > 0 && (j < len(p.Commands)-1 || i < loops-1) {
 				util.LogDebug(ctx, "  Waiting for %d milliseconds before next command group\n", p.CommandIntervalMillis)
 				time.Sleep(time.Duration(p.CommandIntervalMillis) * time.Millisecond)
 			}

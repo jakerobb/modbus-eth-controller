@@ -94,7 +94,7 @@ func (server *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 
 	results, servers := server.runPrograms(ctx, programs)
 
-	relayStatesByServer := server.collectRelayStates(ctx, w, servers)
+	relayStatesByServer := server.collectRelayStates(ctx, servers)
 
 	runResponse := RunResponse{
 		Results: results,
@@ -148,7 +148,6 @@ func (server *Server) runPrograms(ctx context.Context, programs []*api.Program) 
 			Status:  nil,
 			Error:   nil,
 		}
-		servers.Add(program.Address)
 		startTime := time.Now()
 		programCtx := ctx
 		if program.Debug {
@@ -166,13 +165,14 @@ func (server *Server) runPrograms(ctx context.Context, programs []*api.Program) 
 			*result.Error = err.Error()
 		} else {
 			result.Status = &successStatus
+			servers.Add(program.Address)
 		}
 		results = append(results, result)
 	}
 	return results, servers.ToArray()
 }
 
-func (server *Server) collectRelayStates(ctx context.Context, w http.ResponseWriter, servers []string) map[string]*modbus.CoilStates {
+func (server *Server) collectRelayStates(ctx context.Context, servers []string) map[string]*modbus.CoilStates {
 	util.LogDebug(ctx, "Programs complete. Collecting status for servers: %+v\n", servers)
 
 	relayStatesByServer := make(map[string]*modbus.CoilStates)
@@ -181,10 +181,9 @@ func (server *Server) collectRelayStates(ctx context.Context, w http.ResponseWri
 			continue
 		}
 		relayStates, err := modbus.GetStatus(ctx, serverAddr)
-		if err != nil {
-			server.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get status after running programs: %v", err))
+		if err == nil {
+			relayStatesByServer[serverAddr] = relayStates
 		}
-		relayStatesByServer[serverAddr] = relayStates
 	}
 	return relayStatesByServer
 }

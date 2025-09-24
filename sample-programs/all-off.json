@@ -1,7 +1,5 @@
 {
   "address": "modbus.lan:4196",
-  "commandIntervalMillis": 100,
-  "loops": 3,
   "commands": [
     [
       {
