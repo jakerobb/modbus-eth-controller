@@ -167,7 +167,19 @@ The /run endpoint responds with the program(s) executed, along with some informa
       "startTime": "2024-09-13T12:34:56.123456Z",
       "executionTimeMillis": 205,
       "slug": "doorbell",
-      "program": { ... }
+      "program": {
+        "address": "192.168.1.200:4196",
+        "commands": [
+          [
+            { "command": "on", "relay": 1 },
+            { "command": "off", "relay": 2 }
+          ]
+        ],
+        "loops": 1,
+        "commandIntervalMillis": 500,
+        "debug": false,
+        "slug": "[ad-hoc]"
+      }
     }
   ],
   "status": {
@@ -184,7 +196,7 @@ The /run endpoint responds with the program(s) executed, along with some informa
       }
     }
   }
-]
+}
 ```
 
 `slug` is the program slug, or `"(ad-hoc)"` for programs sent in the request body.

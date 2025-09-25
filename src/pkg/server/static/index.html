@@ -10,7 +10,7 @@
         font-size: 18px;
       }
 
-      button {
+      button.pushButton {
         padding: 10px 20px;
         font-size: 20px;
         border-radius: 10px;
@@ -22,12 +22,33 @@
         margin-right: 5px;
       }
 
-      button:active {
+      button.pushButton.small {
+        font-size: 14px;
+        padding: 5px 10px;
+      }
+
+      button.pushButton:active {
         box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.2);
       }
 
-      h3 {
+      button.iconButton {
+        border: none;
+        background: none;
+        font-size: inherit;
+      }
+
+      input {
+        font-size: 16px;
+        padding: 5px;
+        margin-right: 10px;
+      }
+
+      h2, h3 {
         margin: 0;
+      }
+
+      h2 {
+        margin-bottom: 5px;
       }
 
       textarea {
@@ -59,6 +80,17 @@
         flex-direction: row;
         flex-wrap: wrap;
         gap: 15px;
+      }
+
+      #programError {
+        border: 2px solid red;
+        border-radius: 10px;
+        padding: 10px 20px;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      #programError p {
+        margin: 5px 0;
+        max-width: 30em;
       }
 
       #manualEntrySection label {
@@ -127,8 +159,17 @@
         margin-right: 10px;
       }
 
-      .detail.error {
+      .error {
         color: red;
+      }
+
+      .detail.error .detailValue {
+        display: inline-block;
+        max-width: 400px;
+      }
+
+      .detailLabel {
+        vertical-align: top;
       }
 
       .detail {
@@ -153,7 +194,7 @@
     <div id="contents">
       <div id="left">
         <div id="programsSection" class="section">
-          <h2>Stored Programs</h2>
+          <h2>Stored Programs <button class="iconButton" onclick="fetchPrograms()">&#x1F501;</button></h2>
           <div id="programs"></div>
         </div>
         <div id="manualEntrySection" class="section">
@@ -162,7 +203,7 @@
             Enter JSON command
             <a id="apiDocLink" href="/swagger" target="_blank">API docs</a>
           </label>
-          <textarea id="jsonInput" rows="50" cols="80" onkeyup="checkManualJson()">
+          <textarea id="jsonInput" rows="50" cols="60" onkeyup="checkManualJson()">
 {
   "address": "192.168.1.200:4196",
   "commands": [
@@ -177,11 +218,11 @@
 }
 </textarea><br/>
           <div id="jsonValidation"></div>
-          <button onclick="submitJson()">Submit</button>
+          <button class="pushButton" onclick="submitJson()">Submit</button>
         </div>
       </div>
       <div id="right">
-        <button onclick="clearResults()">Clear Results</button>
+        <button class="pushButton" onclick="clearResults()">Clear Results</button>
 
         <div id="statusSection" class="section">
           <h2>Status</h2>
@@ -200,8 +241,11 @@
           <div id="results"></div>
         </div>
         <div id="responseSection" class="section">
-          <h2>JSON response</h2>
-          <button id="toggleResponseButton" onclick="toggleResponse()" style="display:none">Show JSON response</button>
+          <h2>
+            JSON response
+            <button class="pushButton small" id="toggleResponseButton" onclick="toggleResponse()"
+                    style="display:none">Show</button>
+          </h2>
           <div class="running">
             <img src="loading.gif" alt="Loading..."/>
           </div>
@@ -211,8 +255,7 @@
     </div>
 
     <script>
-      // set to "http://localhost:8080" for local testing
-      const API_BASE = "";
+      let apiBase = "";
 
       function checkManualJson() {
         const input = document.getElementById('jsonInput').value;
@@ -289,7 +332,7 @@
 
       function submitJson() {
         const input = document.getElementById('jsonInput').value;
-        fetch(`${API_BASE}/run`, {
+        fetch(`${apiBase}/run`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: input
@@ -309,31 +352,84 @@
         const toggleButton = document.getElementById('toggleResponseButton');
         if (responseDiv.style.display === 'block') {
           responseDiv.style.display = 'none';
-          toggleButton.textContent = 'Show JSON response';
+          toggleButton.textContent = 'Show';
         } else {
           responseDiv.style.display = 'block';
-          toggleButton.textContent = 'Hide JSON response';
+          toggleButton.textContent = 'Hide';
         }
       }
 
-      function onLoad() {
-        fetch(`${API_BASE}/programs`)
-          .then(res => res.json())
+      function handleProgramsError(errorMessage) {
+        const container = document.getElementById('programs');
+        const programErrorDiv = document.createElement('div');
+        programErrorDiv.id = 'programError';
+        const errText = document.createElement('p');
+        const errMsg = document.createElement('p');
+        errText.className = 'error';
+        const currentHost = window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+        errText.textContent = `Error loading programs from ${apiBase || currentHost}:`;
+        errMsg.className = 'error';
+        errMsg.textContent = errorMessage;
+        const changeServersDiv = document.createElement('div');
+        const changeServersText = document.createElement('p');
+        changeServersText.textContent =
+          'If you are running this UI on a different host or port than the server, you can provide that information here:';
+
+        changeServersDiv.appendChild(changeServersText);
+        const serverInput = document.createElement('input');
+        serverInput.type = 'text';
+        serverInput.placeholder = apiBase || currentHost;
+        changeServersDiv.appendChild(serverInput);
+
+        const setButton = document.createElement('button');
+        setButton.className = 'pushButton small';
+        setButton.textContent = 'Set Server';
+        setButton.onclick = () => {
+          apiBase = serverInput.value.trim();
+          localStorage.setItem('api-base', apiBase);
+          fetchPrograms();
+        }
+        changeServersDiv.appendChild(setButton);
+
+        programErrorDiv.appendChild(errText);
+        programErrorDiv.appendChild(errMsg);
+        programErrorDiv.appendChild(changeServersDiv);
+        container.appendChild(programErrorDiv);
+      }
+
+      function fetchPrograms() {
+        const container = document.getElementById('programs');
+        container.innerHTML = '';
+        fetch(`${apiBase}/programs`)
+          .then(res => {
+            if (res.ok) {
+              return res.json();
+            } else {
+              return Promise.reject({message: `Server returned status ${res.status} ${res.statusText}`});
+            }
+          })
           .then(programs => {
-            const container = document.getElementById('programs');
             Object.keys(programs).sort().forEach(name => {
               container.appendChild(createButton(name));
             });
+          })
+          .catch(err => {
+            handleProgramsError(err.message || 'Unknown error');
           });
+      }
 
+      function onLoad() {
+        apiBase = localStorage.getItem("api-base") || ""
+        fetchPrograms();
         checkManualJson();
       }
 
       function createButton(name) {
         const btn = document.createElement('button');
+        btn.className = 'pushButton';
         btn.textContent = name;
         btn.onclick = () => {
-          fetch(`${API_BASE}/run?program=${encodeURIComponent(name)}`, {
+          fetch(`${apiBase}/run?program=${encodeURIComponent(name)}`, {
             method: 'POST'
           }).then(handleResponse);
           setRunningIndicators(true);
@@ -446,6 +542,7 @@
 
           const copyButton = document.createElement('button');
           copyButton.innerHTML = '&#x2B05;&#xFE0F; Copy JSON to Manual Entry';
+          copyButton.className = 'pushButton small';
           copyButton.onclick = () => {
             const jsonInput = document.getElementById('jsonInput');
             const programCopy = {...result.program};

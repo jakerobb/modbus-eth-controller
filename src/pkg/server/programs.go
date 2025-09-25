@@ -23,9 +23,10 @@ type ProgramsBySlugExample struct {
 // @Success      200 {object} ProgramsBySlugExample
 // @Failure      500 {object} server.ErrorResponse
 // @Router       /programs [get]
-func (server *Server) handlePrograms(w http.ResponseWriter, r *http.Request) {
+func (server *Server) handlePrograms(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
+	server.Registry.LoadProgramsFromDir(server.ProgramDir)
 	err := encoder.Encode(server.Registry.Programs)
 	if err != nil {
 		server.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to encode programs: %v", err))
