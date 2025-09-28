@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/jakerobb/modbus-eth-controller/pkg/modbus"
 )
@@ -24,17 +23,16 @@ func (c *Command) RelayIndex() int {
 	return c.Relay - 1
 }
 
-func (c *Command) BuildMessage() modbus.MessageData {
+func (c *Command) BuildMessage() (modbus.MessageData, error) {
 	relayIndex := c.RelayIndex()
 	switch c.Command {
 	case RelayCommandOn:
-		return modbus.NewWriteSingleCoil(relayIndex, modbus.WriteCommandOn)
+		return modbus.NewWriteSingleCoil(relayIndex, modbus.WriteCommandOn), nil
 	case RelayCommandOff:
-		return modbus.NewWriteSingleCoil(relayIndex, modbus.WriteCommandOff)
+		return modbus.NewWriteSingleCoil(relayIndex, modbus.WriteCommandOff), nil
 	case RelayCommandToggle:
-		return modbus.NewWriteSingleCoil(relayIndex, modbus.WriteCommandToggle)
+		return modbus.NewWriteSingleCoil(relayIndex, modbus.WriteCommandToggle), nil
 	default:
-		_, _ = fmt.Fprintf(os.Stderr, "Unknown command: %s\n", c.Command)
-		return nil
+		return nil, fmt.Errorf("unknown command: %s", c.Command)
 	}
 }

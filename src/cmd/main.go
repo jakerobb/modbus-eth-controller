@@ -15,13 +15,20 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 
 	"github.com/jakerobb/modbus-eth-controller/pkg/api"
 	"github.com/jakerobb/modbus-eth-controller/pkg/server"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
+
 	for _, arg := range os.Args[1:] {
 		if arg == "--help" {
 			printUsage()
@@ -34,16 +41,8 @@ func main() {
 		}
 	}
 
-	var programBytes []byte
-	var err error
-
-	info, err := os.Stdin.Stat()
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Failed to stat stdin: %v\n", err)
-		os.Exit(1)
-	}
-
-	programs := readInputPrograms(info, programBytes, err)
+	slog.SetDefault(logger.With("component", "cli"))
+	programs := readInputPrograms()
 
 	if len(programs) == 0 {
 		printUsage()
@@ -52,6 +51,7 @@ func main() {
 
 	ctx := context.Background()
 
+	var err error
 	for _, program := range programs {
 		programCtx := ctx
 		if program.Debug {
@@ -59,12 +59,22 @@ func main() {
 		}
 		err = program.Run(programCtx)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Execution of program '%s' failed: %v\n", program.Path, err)
+			slog.Error("Execution of program failed", "path", program.Path, "error", err)
 		}
+	}
+	if err != nil {
+		os.Exit(1)
 	}
 }
 
-func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*api.Program {
+func readInputPrograms() []*api.Program {
+	var programBytes util.HexBytes
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		slog.Error("Failed to stat stdin", "error", err)
+		os.Exit(1)
+	}
+
 	programs := make([]*api.Program, 0)
 
 	// Only read stdin if it's being piped or redirected and there is at least one byte available
@@ -73,24 +83,24 @@ func readInputPrograms(info os.FileInfo, programBytes []byte, err error) []*api.
 		if err == nil {
 			program, err := api.ParseProgram(programBytes)
 			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from stdin: %v\n", err)
+				slog.Error("Failed to parse program from stdin", "error", err)
 				os.Exit(1)
 			}
 			program.Path = "[stdin]"
 			programs = append(programs, program)
 		} else if err.Error() != "EOF" {
-			_, _ = fmt.Fprintf(os.Stderr, "Failed to read program: %v\n", err)
+			slog.Error("Failed to read program from stdin", "error", err)
 		}
 	}
 
 	for i, filename := range os.Args[1:] {
 		programBytes, err = os.ReadFile(filename)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Failed to read program file %s at argument index %d: %v\n", filename, i, err)
+			slog.Error("Failed to read program file", "argIndex", i, "file", filename, "error", err)
 		} else {
 			program, err := api.ParseProgram(programBytes)
 			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from file %s: %v\n", filename, err)
+				slog.Error("Failed to parse program from file", "argIndex", i, "file", filename, "error", err)
 				os.Exit(1)
 			}
 			program.Path = filename

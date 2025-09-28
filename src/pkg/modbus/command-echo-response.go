@@ -3,9 +3,11 @@ package modbus
 import (
 	"errors"
 	"fmt"
+
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
-func ValidateEchoResponse(requestBytes []byte, response *Response) error {
+func ValidateEchoResponse(requestBytes util.HexBytes, response *Response) error {
 	responseBytes := response.ToBytes()
 
 	validationErrors := make([]error, 0)

@@ -11,10 +11,10 @@ import (
 
 type Response struct {
 	MessageHeader *MessageHeader
-	Data          []byte
+	Data          util.HexBytes
 }
 
-func (r Response) ToBytes() []byte {
+func (r Response) ToBytes() util.HexBytes {
 	msg := make([]byte, 7+len(r.Data))
 	binary.BigEndian.PutUint16(msg[0:], r.MessageHeader.TransactionID)
 	binary.BigEndian.PutUint16(msg[2:], r.MessageHeader.ProtocolID)
@@ -26,7 +26,7 @@ func (r Response) ToBytes() []byte {
 
 func ReadResponse(ctx context.Context, conn net.Conn) (*Response, error) {
 	// read the 7-byte header first; it tells us the full message length
-	header := make([]byte, 7)
+	var header util.HexBytes = make([]byte, 7)
 	_, err := io.ReadFull(conn, header)
 	if err != nil {
 		return nil, err
@@ -39,13 +39,14 @@ func ReadResponse(ctx context.Context, conn net.Conn) (*Response, error) {
 		UnitID:        header[6],
 	}
 
-	payload := make([]byte, messageHeader.Length-1)
+	// subtract one here because we consider the UnitID to be part of the header, but modbus protocol counts it in the length
+	var payload util.HexBytes = make([]byte, messageHeader.Length-1)
 	_, err = io.ReadFull(conn, payload)
 	if err != nil {
 		return nil, err
 	}
 
-	util.LogDebug(ctx, "      Response: % X % X\n", header, payload)
+	util.LogDebug(ctx, "Response", "header", header, "payload", payload)
 
 	return &Response{
 		MessageHeader: messageHeader,

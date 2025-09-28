@@ -2,6 +2,8 @@ package modbus
 
 import (
 	"encoding/binary"
+
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 type WriteSingleCoil struct {
@@ -9,7 +11,7 @@ type WriteSingleCoil struct {
 	FunctionCode  byte
 	Relay         uint16
 	Command       WriteCommand
-	data          []byte
+	data          util.HexBytes
 }
 
 type WriteCommand uint16
@@ -28,7 +30,7 @@ func NewWriteSingleCoil(relay int, command WriteCommand) *WriteSingleCoil {
 	}
 }
 
-func (w *WriteSingleCoil) ToDataBytes() []byte {
+func (w *WriteSingleCoil) ToDataBytes() util.HexBytes {
 	if len(w.data) == 0 {
 		msg := make([]byte, 5)
 		msg[0] = w.FunctionCode

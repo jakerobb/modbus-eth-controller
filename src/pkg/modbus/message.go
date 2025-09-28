@@ -21,18 +21,31 @@ var lastTransactionId uint16 = 0
 
 type Message struct {
 	Header *MessageHeader
-	Data   []byte
-	Bytes  []byte
+	Data   util.HexBytes
+	Bytes  util.HexBytes
 }
 type MessageHeader struct {
 	TransactionID uint16
 	ProtocolID    uint16
 	Length        uint16
 	UnitID        byte
+	Bytes         util.HexBytes
+}
+
+func (mh MessageHeader) ToBytes() util.HexBytes {
+	if len(mh.Bytes) == 0 {
+		msg := make([]byte, 7)
+		binary.BigEndian.PutUint16(msg[0:], mh.TransactionID)
+		binary.BigEndian.PutUint16(msg[2:], mh.ProtocolID)
+		binary.BigEndian.PutUint16(msg[4:], mh.Length)
+		msg[6] = mh.UnitID
+		mh.Bytes = msg
+	}
+	return mh.Bytes
 }
 
 type MessageData interface {
-	ToDataBytes() []byte
+	ToDataBytes() util.HexBytes
 	ValidateResponse(request *Message, response *Response) error
 	ParseResponse(response *Response) (interface{}, error)
 }
@@ -58,15 +71,13 @@ func createMessage(data MessageData) *Message {
 	}
 }
 
-func (m *Message) ToBytes() []byte {
+func (m *Message) ToBytes() util.HexBytes {
 	if len(m.Bytes) == 0 {
 		mh := m.Header
+		headerBytes := mh.ToBytes()
 		data := m.Data
-		msg := make([]byte, 7+len(data))
-		binary.BigEndian.PutUint16(msg[0:], mh.TransactionID)
-		binary.BigEndian.PutUint16(msg[2:], mh.ProtocolID)
-		binary.BigEndian.PutUint16(msg[4:], mh.Length)
-		msg[6] = mh.UnitID
+		msg := make([]byte, len(headerBytes)+len(data))
+		copy(msg[0:], headerBytes)
 		copy(msg[7:], data)
 		m.Bytes = msg
 	}
@@ -75,7 +86,7 @@ func (m *Message) ToBytes() []byte {
 
 func (m *Message) sendMessage(ctx context.Context, conn net.Conn) (*Response, error) {
 	messageBytes := m.ToBytes()
-	util.LogDebug(ctx, "      Sending:  % X\n", messageBytes)
+	util.LogDebug(ctx, "Sending", "header", m.Header.ToBytes(), "payload", m.Data)
 	_, err := conn.Write(messageBytes)
 	if err != nil {
 		return nil, err
@@ -96,7 +107,7 @@ func Send(ctx context.Context, conn net.Conn, messageData MessageData) (*Message
 	}
 
 	if err = checkForException(response); err != nil {
-		util.LogDebug(ctx, "      Got an exception response! %s\n", err.Error())
+		util.LogDebug(ctx, "Got an exception response!", "error", err.Error())
 		return nil, nil, err
 	}
 
@@ -104,7 +115,7 @@ func Send(ctx context.Context, conn net.Conn, messageData MessageData) (*Message
 	if err != nil {
 		return nil, nil, err
 	}
-	util.LogDebug(ctx, "      Response is valid!\n")
+	util.LogDebug(ctx, "Response is valid")
 	parseResponse, err := messageData.ParseResponse(response)
 	return msg, parseResponse, err
 }

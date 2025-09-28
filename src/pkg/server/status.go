@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/jakerobb/modbus-eth-controller/pkg/modbus"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 // handleStatus godoc
@@ -29,7 +29,7 @@ func (server *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	relayStates, err := modbus.GetStatus(ctx, addr)
 	if err != nil {
-		server.RespondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read relay states: %v", err))
+		server.RespondWithError(ctx, w, http.StatusInternalServerError, fmt.Sprintf("Failed to read relay states: %v", err))
 		return
 	}
 
@@ -38,6 +38,7 @@ func (server *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	err = enc.Encode(relayStates)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Failed to encode response: %v\n", err)
+		logger := util.GetLogger(ctx)
+		logger.Error("Failed to encode response", "error", err)
 	}
 }

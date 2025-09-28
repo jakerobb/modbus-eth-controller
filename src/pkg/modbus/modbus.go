@@ -10,12 +10,12 @@ import (
 )
 
 func Connect(ctx context.Context, addr string) (net.Conn, error) {
-	util.LogDebug(ctx, "Connecting to %s\n", addr)
+	util.LogDebug(ctx, "Connecting", "address", addr)
 	conn, err := net.DialTimeout("tcp", addr, time.Second*5)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", addr, err)
 	}
-	util.LogDebug(ctx, "Connected to %s\n", addr)
+	util.LogDebug(ctx, "Connected", "address", addr)
 	return conn, nil
 }
 

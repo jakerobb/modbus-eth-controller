@@ -1,22 +1,27 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/swaggo/http-swagger"
 
 	_ "github.com/jakerobb/modbus-eth-controller/docs"
 	"github.com/jakerobb/modbus-eth-controller/pkg/server/registry"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 type Server struct {
 	ProgramDir  string
 	Registry    *registry.Registry
 	AllowOrigin string
+	Logger      *slog.Logger
 }
 
 type ErrorResponse struct {
@@ -35,20 +40,51 @@ func InitServer() *Server {
 		allowOrigin = "*"
 	}
 
+	logger := slog.Default().With("component", "server")
+
 	server := &Server{
 		ProgramDir:  programDir,
 		Registry:    registry.NewRegistry(),
 		AllowOrigin: allowOrigin,
+		Logger:      logger,
 	}
 
-	server.Registry.LoadProgramsFromDir(programDir)
+	server.Registry.LoadProgramsFromDir(util.WithLogger(context.Background(), logger), programDir)
 	return server
 }
 
-func (server *Server) handleWithCORS(path string, h http.HandlerFunc, methods ...string) {
+func (server *Server) handle(path string, h http.HandlerFunc, methods ...string) {
+	handler := server.wrapWithLogging(h)
+	handler = server.wrapWithCors(handler, methods...)
+	http.Handle(path, handler)
+}
+
+func (server *Server) wrapWithLogging(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		reqID := uuid.New().String()
+		reqLogger := slog.Default().With(
+			"req_id", reqID,
+			"client_ip", r.RemoteAddr,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"query_string", r.URL.RawQuery,
+		)
+		ctx := util.WithLogger(r.Context(), reqLogger)
+		reqLogger.Info("Received request")
+		for name, vals := range r.Header {
+			for _, v := range vals {
+				reqLogger.Info("header", "name", name, "value", v)
+			}
+		}
+		reqLogger.Info("remote addr", "addr", r.RemoteAddr)
+		h.ServeHTTP(w, r.WithContext(ctx))
+	}
+}
+
+func (server *Server) wrapWithCors(h http.HandlerFunc, methods ...string) http.HandlerFunc {
 	allowedMethods := append([]string{"OPTIONS"}, methods...)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", server.AllowOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -66,14 +102,12 @@ func (server *Server) handleWithCORS(path string, h http.HandlerFunc, methods ..
 			}
 		}
 		if !methodAllowed {
-			server.RespondWithError(w, http.StatusMethodNotAllowed, fmt.Sprintf("%s method not allowed", r.Method))
+			server.RespondWithError(r.Context(), w, http.StatusMethodNotAllowed, fmt.Sprintf("%s method not allowed", r.Method))
 			return
 		}
 
 		h.ServeHTTP(w, r)
-	})
-
-	http.Handle(path, handler)
+	}
 }
 
 func (server *Server) Start() {
@@ -87,21 +121,24 @@ func (server *Server) Start() {
 		listenPort = "8080"
 	}
 
-	server.handleWithCORS("/run", server.handleRun, "POST")
-	server.handleWithCORS("/programs", server.handlePrograms, "GET")
-	server.handleWithCORS("/status", server.handleStatus, "GET")
-	server.handleWithCORS("/", http.FileServer(http.FS(staticContent)).ServeHTTP, "GET")
-	server.handleWithCORS("/swagger/", httpSwagger.WrapHandler.ServeHTTP, "GET")
+	server.handle("/run", server.handleRun, "POST")
+	server.handle("/programs", server.handlePrograms, "GET")
+	server.handle("/status", server.handleStatus, "GET")
+	server.handle("/", http.FileServer(http.FS(staticContent)).ServeHTTP, "GET")
+	server.handle("/swagger/", httpSwagger.WrapHandler.ServeHTTP, "GET")
 
-	fmt.Printf("Starting server on %s:%s\n", listenAddr, listenPort)
+	server.Logger.Info("Starting server",
+		"address", listenAddr,
+		"port", listenPort,
+	)
 	err := http.ListenAndServe(fmt.Sprintf("%s:%s", listenAddr, listenPort), nil)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Failed to start server: %v\n", err)
+		slog.Error("Failed to start server", "error", err)
 		os.Exit(1)
 	}
 }
 
-func (server *Server) RespondWithError(w http.ResponseWriter, status int, message string) {
+func (server *Server) RespondWithError(ctx context.Context, w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	err := json.NewEncoder(w).Encode(ErrorResponse{
@@ -109,6 +146,6 @@ func (server *Server) RespondWithError(w http.ResponseWriter, status int, messag
 		Message: message,
 	})
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Failed to encode error response: %v\n", err)
+		util.GetLogger(ctx).Error("Failed to encode error response", "error", err)
 	}
 }

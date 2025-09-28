@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
 type CoilStates struct {
@@ -26,7 +28,7 @@ func NewReadCoils(startAddress, quantity uint16) *ReadCoils {
 	}
 }
 
-func (w *ReadCoils) ToDataBytes() []byte {
+func (w *ReadCoils) ToDataBytes() util.HexBytes {
 	msg := make([]byte, 5)
 	msg[0] = w.FunctionCode
 	binary.BigEndian.PutUint16(msg[1:], w.StartAddress)

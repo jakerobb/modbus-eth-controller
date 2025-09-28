@@ -62,7 +62,7 @@ func SlugifyFilename(path string) string {
 	return slug
 }
 
-func ParseProgram(programBytes []byte) (*Program, error) {
+func ParseProgram(programBytes util.HexBytes) (*Program, error) {
 	var program Program
 	if err := json.Unmarshal(programBytes, &program); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON program: %w", err)
@@ -94,24 +94,28 @@ func (p *Program) Run(ctx context.Context) error {
 		loops = 1
 	}
 
-	util.LogDebug(ctx, "Parsed program: %+v\n", p)
+	util.LogDebug(ctx, "Parsed program", "program", p)
 
-	util.LogDebug(ctx, "Starting command execution for %d loops\n", loops)
+	util.LogDebug(ctx, "Starting command execution",
+		"loops", loops)
 	for i := 0; i < loops; i++ {
-		util.LogDebug(ctx, "Loop %d/%d\n", i+1, loops)
+		util.LogDebug(ctx, "Starting loop", "loopNumber", i+1, "loopCount", loops)
 		for j, cmdGroup := range p.Commands {
-			util.LogDebug(ctx, "  Executing command group %d: %+v\n", j+1, cmdGroup)
+			util.LogDebug(ctx, "Executing command group", "groupNumber", j+1, "group", cmdGroup)
 			for k, cmd := range cmdGroup {
-				util.LogDebug(ctx, "    Executing command %d: %+v\n", k+1, cmd)
-				modbusMessage := cmd.BuildMessage()
-				_, _, err := modbus.Send(ctx, conn, modbusMessage)
+				util.LogDebug(ctx, "Executing command", "commandNumber", k+1, "command", cmd)
+				modbusMessage, err := cmd.BuildMessage()
 				if err != nil {
-					return fmt.Errorf("failure in loop %d, command group %d, command %d (%v): %w", i, j, k, cmd, err)
+					return fmt.Errorf("failed to build message in loop %d, command group %d, command %d (%v): %w", i+1, j+1, k+1, cmd, err)
+				}
+				_, _, err = modbus.Send(ctx, conn, modbusMessage)
+				if err != nil {
+					return fmt.Errorf("failure in loop %d, command group %d, command %d (%v): %w", i+1, j+1, k+1, cmd, err)
 				}
 			}
 
 			if p.CommandIntervalMillis > 0 && (j < len(p.Commands)-1 || i < loops-1) {
-				util.LogDebug(ctx, "  Waiting for %d milliseconds before next command group\n", p.CommandIntervalMillis)
+				util.LogDebug(ctx, "Waiting before next command group", "milliseconds", p.CommandIntervalMillis, "loopNumber", i+1, "commandGroupNumber", j+1)
 				time.Sleep(time.Duration(p.CommandIntervalMillis) * time.Millisecond)
 			}
 		}

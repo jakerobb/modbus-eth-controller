@@ -1,18 +1,21 @@
 package registry
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/jakerobb/modbus-eth-controller/pkg/api"
+	"github.com/jakerobb/modbus-eth-controller/pkg/util"
 )
 
-func (r *Registry) LoadProgramsFromDir(dir string) {
+func (r *Registry) LoadProgramsFromDir(ctx context.Context, dir string) {
 	files, err := os.ReadDir(dir)
+	logger := util.GetLogger(ctx)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Failed to read program directory %s: %v. No programs will be loaded.\n", dir, err)
+		logger.Error("Failed to read program directory. No programs will be loaded.", "dir", dir, "error", err)
 	}
 
 	for _, file := range files {
@@ -22,24 +25,29 @@ func (r *Registry) LoadProgramsFromDir(dir string) {
 		fullPath := filepath.Join(dir, file.Name())
 		program, err := api.ParseProgramFromFile(fullPath)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from file %s: %v\n", fullPath, err)
+			logger.Error("Failed to parse program from file. Skipping.", "file", fullPath, "error", err)
 			continue
 		}
 
 		_, exists := r.GetProgram(program.Slug)
 		if exists {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: duplicate program slug '%s' found in file %s, skipping\n", program.Slug, fullPath)
+			logger.Warn("Duplicate program slug found. Skipping.", "slug", program.Slug, "file", fullPath)
 			continue
 		}
 
 		r.StoreProgram(program)
 
-		fmt.Printf("Loaded program '%s' from %s\n", program.Slug, fullPath)
+		logger.Info("Loaded program",
+			"slug", program.Slug,
+			"path", fullPath)
 	}
-	fmt.Printf("Total programs loaded: %d\n", r.Size())
+	logger.Info("Loaded programs",
+		"programCount", r.Size())
 }
 
-func (r *Registry) LoadNewProgramFromDisk(slug string, dir string) (*api.Program, error) {
+func (r *Registry) LoadNewProgramFromDisk(ctx context.Context, slug string, dir string) (*api.Program, error) {
+	logger := util.GetLogger(ctx)
+
 	_, exists := r.GetProgram(slug)
 	if exists {
 		return nil, fmt.Errorf("program '%s' already exists", slug)
@@ -57,24 +65,27 @@ func (r *Registry) LoadNewProgramFromDisk(slug string, dir string) (*api.Program
 		fullPath := filepath.Join(dir, file.Name())
 		program, err := api.ParseProgramFromFile(fullPath)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Failed to parse program from file %s: %v\n", fullPath, err)
+			logger.Error("Failed to parse program from file. Skipping.", "file", fullPath, "error", err)
 			continue
 		}
 
 		_, exists := r.GetProgram(program.Slug)
 		if exists {
-			_, _ = fmt.Fprintf(os.Stderr, "Warning: duplicate program slug '%s' found in file %s, skipping\n", program.Slug, fullPath)
+			logger.Warn("Duplicate program slug found. Skipping.", "slug", program.Slug, "file", fullPath)
 			continue
 		}
 
-		fmt.Printf("Loaded new program '%s' from %s\n", program.Slug, fullPath)
+		logger.Info("Loaded new program",
+			"slug", program.Slug,
+			"path", fullPath)
 		r.StoreProgram(program)
 		return program, nil
 	}
 	return nil, nil
 }
 
-func (r *Registry) ReloadProgramFromDiskIfNewer(program *api.Program) (*api.Program, error) {
+func (r *Registry) ReloadProgramFromDiskIfNewer(ctx context.Context, program *api.Program) (*api.Program, error) {
+	logger := util.GetLogger(ctx)
 	path := program.Path
 	info, err := os.Stat(path)
 	if err != nil {
@@ -88,7 +99,10 @@ func (r *Registry) ReloadProgramFromDiskIfNewer(program *api.Program) (*api.Prog
 		}
 		oldMod := program.LastModified
 		r.StoreProgram(newProgram)
-		fmt.Printf("Reloaded program '%s': old mod time %v, new mod time %v\n", program.Slug, oldMod, newProgram.LastModified)
+		logger.Info("Reloaded program",
+			"slug", program.Slug,
+			"oldModTime", oldMod,
+			"newModTime", newProgram.LastModified)
 		return newProgram, nil
 	}
 	return program, nil

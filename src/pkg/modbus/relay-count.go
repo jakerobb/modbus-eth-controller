@@ -32,13 +32,13 @@ func DiscoverRelayCount(ctx context.Context, addr string, conn net.Conn) (uint16
 	low := uint16(0)
 	high := uint16(0xFFFF)
 
-	util.LogDebug(ctx, "  Starting relay count discovery for %s...\n", addr)
+	util.LogDebug(ctx, "Starting relay count discovery", "address", addr)
 	pass := 0
 	for low <= high {
 		mid := (low + high) / 2
 
 		pass++
-		util.LogDebug(ctx, "    Checking presence of relay %d...\n", mid)
+		util.LogDebug(ctx, "Checking presence of relay", "address", addr, "relayIndex", mid)
 		req := NewReadCoils(mid, 1)
 
 		if _, _, err := Send(ctx, conn, req); err == nil {
@@ -55,7 +55,7 @@ func DiscoverRelayCount(ctx context.Context, addr string, conn net.Conn) (uint16
 		}
 	}
 
-	util.LogDebug(ctx, "    Discovered relay count: %d (took %d passes)\n", high+1, pass)
+	util.LogDebug(ctx, "Discovered relay count", "actualCount", high+1, "requestsMade", pass)
 	return high + 1, nil
 }
 

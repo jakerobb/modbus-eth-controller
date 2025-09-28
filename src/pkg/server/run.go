@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/jakerobb/modbus-eth-controller/pkg/api"
@@ -53,9 +52,10 @@ func (server *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	var err error
 	programs := make([]*api.Program, 0)
 
+	ctx := r.Context()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		server.RespondWithError(w, http.StatusBadRequest, "Failed to read request body")
+		server.RespondWithError(ctx, w, http.StatusBadRequest, "Failed to read request body")
 		return
 	}
 	defer util.CloseQuietly(r.Body)
@@ -63,14 +63,13 @@ func (server *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	if len(body) > 0 {
 		program, err := api.ParseProgram(body)
 		if err != nil {
-			server.RespondWithError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse program: %v", err))
+			server.RespondWithError(ctx, w, http.StatusBadRequest, fmt.Sprintf("Failed to parse program: %v", err))
 			return
 		}
 		program.Slug = "[ad-hoc]"
 		programs = append(programs, program)
 	}
 
-	ctx := r.Context()
 	query := r.URL.Query()
 	debugParam := query.Get("debug")
 	if debugParam == "true" {
@@ -79,16 +78,16 @@ func (server *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 
 	slugs, slugsProvided := query["program"]
 	if slugsProvided {
-		err, status, returnedPrograms := server.getNamedPrograms(slugs)
+		err, status, returnedPrograms := server.getNamedPrograms(ctx, slugs)
 		if err != nil {
-			server.RespondWithError(w, status, err.Error())
+			server.RespondWithError(ctx, w, status, err.Error())
 			return
 		}
 		programs = append(programs, returnedPrograms...)
 	}
 
 	if len(programs) == 0 {
-		server.RespondWithError(w, http.StatusInternalServerError, "Internal error: no programs to run")
+		server.RespondWithError(ctx, w, http.StatusInternalServerError, "Internal error: no programs to run")
 		return
 	}
 
@@ -106,23 +105,24 @@ func (server *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	err = enc.Encode(runResponse)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Failed to encode response: %v\n", err)
+		logger := util.GetLogger(ctx)
+		logger.Error("Failed to encode response", "error", err)
 	}
 }
 
-func (server *Server) getNamedPrograms(slugs []string) (error, int, []*api.Program) {
+func (server *Server) getNamedPrograms(ctx context.Context, slugs []string) (error, int, []*api.Program) {
 	programs := make([]*api.Program, 0)
 	for _, slug := range slugs {
 		program, exists := server.Registry.GetProgram(slug)
 		if !exists {
-			_, err := server.Registry.LoadNewProgramFromDisk(slug, server.ProgramDir)
+			_, err := server.Registry.LoadNewProgramFromDisk(ctx, slug, server.ProgramDir)
 			if err != nil {
 				err = fmt.Errorf("failed to load program: %w", err)
 				return err, http.StatusNotFound, nil
 			}
 		}
 
-		program, err := server.Registry.ReloadProgramFromDiskIfNewer(program)
+		program, err := server.Registry.ReloadProgramFromDiskIfNewer(ctx, program)
 		if err != nil {
 			err = fmt.Errorf("failed to reload program: %w", err)
 			return err, http.StatusInternalServerError, nil
@@ -173,7 +173,7 @@ func (server *Server) runPrograms(ctx context.Context, programs []*api.Program) 
 }
 
 func (server *Server) collectRelayStates(ctx context.Context, servers []string) map[string]*modbus.CoilStates {
-	util.LogDebug(ctx, "Programs complete. Collecting status for servers: %+v\n", servers)
+	util.LogDebug(ctx, "Programs complete. Collecting status.", "servers", servers)
 
 	relayStatesByServer := make(map[string]*modbus.CoilStates)
 	for _, serverAddr := range servers {
