@@ -51,29 +51,36 @@ type ProgramResult struct {
 func (server *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	var err error
 	programs := make([]*api.Program, 0)
-
+	ignoreBody := false
 	ctx := r.Context()
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		server.RespondWithError(ctx, w, http.StatusBadRequest, "Failed to read request body")
-		return
-	}
-	defer util.CloseQuietly(r.Body)
-
-	if len(body) > 0 {
-		program, err := api.ParseProgram(body)
-		if err != nil {
-			server.RespondWithError(ctx, w, http.StatusBadRequest, fmt.Sprintf("Failed to parse program: %v", err))
-			return
-		}
-		program.Slug = "[ad-hoc]"
-		programs = append(programs, program)
-	}
 
 	query := r.URL.Query()
 	debugParam := query.Get("debug")
 	if debugParam == "true" {
 		ctx = context.WithValue(ctx, "debug", true)
+	}
+	ignoreBodyParam := query.Get("ignoreBody")
+	if ignoreBodyParam == "true" {
+		ignoreBody = true
+	}
+
+	if !ignoreBody {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			server.RespondWithError(ctx, w, http.StatusBadRequest, "Failed to read request body")
+			return
+		}
+		defer util.CloseQuietly(r.Body)
+
+		if len(body) > 0 {
+			program, err := api.ParseProgram(body)
+			if err != nil {
+				server.RespondWithError(ctx, w, http.StatusBadRequest, fmt.Sprintf("Failed to parse program: %v", err))
+				return
+			}
+			program.Slug = "[ad-hoc]"
+			programs = append(programs, program)
+		}
 	}
 
 	slugs, slugsProvided := query["program"]

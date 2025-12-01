@@ -71,11 +71,11 @@ func (server *Server) wrapWithLogging(h http.HandlerFunc) http.HandlerFunc {
 		)
 		ctx := util.WithLogger(r.Context(), reqLogger)
 		reqLogger.Info("Received request")
-		for name, vals := range r.Header {
-			for _, v := range vals {
-				reqLogger.Info("header", "name", name, "value", v)
-			}
-		}
+		//for name, vals := range r.Header {
+		//	for _, v := range vals {
+		//		reqLogger.Info("header", "name", name, "value", v)
+		//	}
+		//}
 		reqLogger.Info("remote addr", "addr", r.RemoteAddr)
 		h.ServeHTTP(w, r.WithContext(ctx))
 	}
@@ -121,7 +121,7 @@ func (server *Server) Start() {
 		listenPort = "8080"
 	}
 
-	server.handle("/run", server.handleRun, "POST")
+	server.handle("/run", server.handleRun, "GET", "POST")
 	server.handle("/programs", server.handlePrograms, "GET")
 	server.handle("/status", server.handleStatus, "GET")
 	server.handle("/", http.FileServer(http.FS(staticContent)).ServeHTTP, "GET")
@@ -145,7 +145,10 @@ func (server *Server) RespondWithError(ctx context.Context, w http.ResponseWrite
 		Status:  status,
 		Message: message,
 	})
+	logger := util.GetLogger(ctx)
+	logger.Info("Responding with error", "status", status, "message", message)
 	if err != nil {
-		util.GetLogger(ctx).Error("Failed to encode error response", "error", err)
+		logger.Error("Failed to encode error response", "error", err)
 	}
+
 }
