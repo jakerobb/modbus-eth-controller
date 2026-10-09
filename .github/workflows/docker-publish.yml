@@ -52,17 +52,44 @@ jobs:
           cd src
           go run github.com/swaggo/swag/cmd/swag init -d cmd,pkg
 
+      # Committed through the GraphQL API rather than `git push` so that
+      # GitHub signs the commit (main requires signed commits). The ruleset
+      # lets the Actions app bypass the pull request requirement only.
       - name: Commit and push changes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to commit"
-          else
-            git commit -m "chore: auto-update swagger docs"
-            git push
+            exit 0
           fi
+
+          # Contents go through files and --slurpfile: they're too big for argv.
+          : > additions.jsonl
+          deletions='[]'
+          while IFS=$'\t' read -r status path; do
+            if [ "$status" = D ]; then
+              deletions=$(jq -c --arg p "$path" '. + [{path: $p}]' <<< "$deletions")
+            else
+              base64 < "$path" | tr -d '\n' | jq -Rs --arg p "$path" '{path: $p, contents: .}' >> additions.jsonl
+            fi
+          done < <(git diff --cached --name-status --no-renames)
+          jq -s '.' additions.jsonl > additions.json
+
+          jq -n --arg repo "$GITHUB_REPOSITORY" --arg branch "$GITHUB_REF_NAME" \
+            --arg oid "$(git rev-parse HEAD)" --argjson del "$deletions" \
+            --slurpfile add additions.json '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { url } } }",
+              variables: {input: {
+                branch: {repositoryNameWithOwner: $repo, branchName: $branch},
+                message: {headline: "chore: auto-update swagger docs"},
+                expectedHeadOid: $oid,
+                fileChanges: {additions: $add[0], deletions: $del}
+              }}
+            }' > request.json
+          gh api graphql --input request.json
+          rm additions.jsonl additions.json request.json
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
