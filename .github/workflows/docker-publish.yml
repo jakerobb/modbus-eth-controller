@@ -114,6 +114,7 @@ jobs:
         run: echo "tag=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -122,6 +123,20 @@ jobs:
           tags: |
             jakerobb/modbus-eth-controller:latest
             jakerobb/modbus-eth-controller:${{ steps.date.outputs.tag }}
+
+      - name: Summarize image reference
+        env:
+          IMAGE: docker.io/jakerobb/modbus-eth-controller:${{ steps.date.outputs.tag }}@${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "### Published image"
+            echo
+            echo "Use this as \`image:\` in your deployment:"
+            echo
+            echo '```'
+            echo "$IMAGE"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report remote image sizes by platform
         run: |
