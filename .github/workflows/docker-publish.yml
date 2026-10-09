@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Docker Publish
 
 on:
   push:
@@ -7,22 +7,42 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  test:
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: jakerobb/modbus-eth-controller
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/go.mod
+
+      - name: Vet
+        run: go vet ./...
+        working-directory: src
+
+      - name: Test
+        run: go test ./...
+        working-directory: src
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+
+    # Pushes regenerated Swagger docs back to main.
     permissions:
       contents: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.22'
+          go-version-file: src/go.mod
 
       - name: Install swag
         run: go install github.com/swaggo/swag/cmd/swag@latest
@@ -45,35 +65,32 @@ jobs:
           fi
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Pull existing image for cache
-        run: docker pull ${IMAGE_NAME}:latest || true
-
-      - name: Get current date
+      - name: Get date tag
         id: date
-        run: echo "date=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      - name: Build and push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          push: true
           platforms: linux/amd64,linux/arm64
+          push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.date }}
-            ${{ env.IMAGE_NAME }}:latest
+            jakerobb/modbus-eth-controller:latest
+            jakerobb/modbus-eth-controller:${{ steps.date.outputs.tag }}
 
       - name: Report remote image sizes by platform
         run: |
           curl -sSfL https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar xz
-          ./crane manifest ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.date }} > manifest.json
+          ./crane manifest jakerobb/modbus-eth-controller:${{ steps.date.outputs.tag }} > manifest.json
           
           echo "### Remote image sizes by platform" >> $GITHUB_STEP_SUMMARY
           for digest in $(jq -r '.manifests[].digest' manifest.json); do
@@ -85,7 +102,7 @@ jobs:
               continue
             fi
           
-            ./crane manifest ${{ env.IMAGE_NAME }}@$digest > arch-manifest.json
+            ./crane manifest jakerobb/modbus-eth-controller@$digest > arch-manifest.json
             total=$(jq '[.layers[].size] | add' arch-manifest.json)
             human=$(numfmt --to=iec --suffix=B "$total")
             echo "- $arch: \`$human\`" >> $GITHUB_STEP_SUMMARY
