@@ -48,6 +48,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      # Anonymous pulls from Docker Hub are rate limited per runner IP, which
+      # shared GitHub runners hit often enough to fail builds with a 429.
+      - name: Log in to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       # Build only, to catch Dockerfile breakage before merge. Publishing
       # happens in docker-publish.yml after merge to main.
       - name: Build image
