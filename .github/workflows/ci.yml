@@ -50,7 +50,11 @@ jobs:
 
       # Anonymous pulls from Docker Hub are rate limited per runner IP, which
       # shared GitHub runners hit often enough to fail builds with a 429.
+      # Docker Hub's auth service is flaky too, so a failed login falls back
+      # to an anonymous pull instead of failing the check. Publishing, which
+      # needs the login, still fails hard in docker-publish.yml.
       - name: Log in to Docker Hub
+        continue-on-error: true
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
