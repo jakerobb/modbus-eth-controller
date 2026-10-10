@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/swaggo/http-swagger"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	_ "github.com/jakerobb/modbus-eth-controller/docs"
 	"github.com/jakerobb/modbus-eth-controller/pkg/server/registry"
