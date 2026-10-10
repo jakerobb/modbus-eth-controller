@@ -40,13 +40,17 @@ jobs:
         with:
           go-version-file: src/go.mod
 
+      # Installed as a binary at the version go.mod already requires, so the
+      # generated docs match the library. `go run` of the CLI package needs
+      # go.sum entries for its dependencies, which `go mod tidy` removes
+      # because the app itself never imports them.
       - name: Install swag
-        run: go install github.com/swaggo/swag/cmd/swag@latest
+        working-directory: src
+        run: go install "github.com/swaggo/swag/cmd/swag@$(go list -m -f '{{.Version}}' github.com/swaggo/swag)"
 
       - name: Generate Swagger docs
-        run: |
-          cd src
-          go run github.com/swaggo/swag/cmd/swag init -d cmd,pkg
+        working-directory: src
+        run: '"$(go env GOPATH)/bin/swag" init -d cmd,pkg'
 
       # main requires pull requests and checks, which the GitHub App below is
       # allowed to bypass (and the Actions token isn't, on a personal repo).
