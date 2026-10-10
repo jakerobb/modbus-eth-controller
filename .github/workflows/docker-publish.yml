@@ -31,10 +31,6 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
 
-    # Pushes regenerated Swagger docs back to main.
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,12 +48,21 @@ jobs:
           cd src
           go run github.com/swaggo/swag/cmd/swag init -d cmd,pkg
 
+      # main requires pull requests and checks, which the GitHub App below is
+      # allowed to bypass (and the Actions token isn't, on a personal repo).
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.APPS_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.APPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+
       # Committed through the GraphQL API rather than `git push` so that
-      # GitHub signs the commit (main requires signed commits). The ruleset
-      # lets the Actions app bypass the pull request requirement only.
+      # GitHub signs the commit (main requires signed commits, with no bypass).
       - name: Commit and push changes
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git add -A
           if git diff --cached --quiet; then
