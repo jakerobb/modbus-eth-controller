@@ -4,6 +4,7 @@
   "timezone": "America/Detroit",
   "gitAuthor": "Jake Robb <jakerobb@users.noreply.github.com>",
   "platformCommit": "disabled",
+  "prHourlyLimit": 0,
   "packageRules": [
     {
       "description": "Keep the go directive (which CI's setup-go builds with) on the latest patch release, so govulncheck sees the fixed standard library.",
