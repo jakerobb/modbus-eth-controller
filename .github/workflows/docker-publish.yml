@@ -111,7 +111,7 @@ jobs:
 
       - name: Get date tag
         id: date
-        run: echo "tag=$(date -u +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+        run: echo "tag=$(date -u +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         id: build
