@@ -1,6 +1,6 @@
 services:
   modbus-controller:
-    image: jakerobb/modbus-eth-controller:latest@sha256:3486416f5d2149666ff91f638531a417d5fbabb6f916dbec970f192ff35fdcdc
+    image: jakerobb/modbus-eth-controller:latest
     ports:
       - "8080:8080"
     volumes:

@@ -4,6 +4,7 @@
   "timezone": "America/Detroit",
   "gitAuthor": "Jake Robb <jakerobb@users.noreply.github.com>",
   "platformCommit": "disabled",
+  "ignorePaths": ["docker-compose.yaml"],
   "prHourlyLimit": 0,
   "packageRules": [
     {
