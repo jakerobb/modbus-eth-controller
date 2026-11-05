@@ -1,6 +1,6 @@
 # Build on the runner's own platform and cross-compile, rather than building
 # each platform under QEMU emulation.
-FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:0c050feb47802ae436b9030833694a0b80160d08e3b3049ad30bf7c9e724e09d AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
