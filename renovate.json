@@ -12,6 +12,11 @@
       "matchDatasources": ["golang-version"],
       "matchDepTypes": ["golang"],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "Move the go directive in go.mod and the Dockerfile's golang builder image together: the image runs with GOTOOLCHAIN=local, so it must be at least the version go.mod requires.",
+      "matchPackageNames": ["go", "golang"],
+      "groupName": "Go"
     }
   ],
   "vulnerabilityAlerts": {
